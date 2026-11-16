@@ -31,6 +31,14 @@ The tube rail uses a white → cyan → pale cyan → white horizontal ramp. Con
 
 App scanning, shortcut icon lookup, directory enumeration, file copying and ZIP extraction run off the UI thread. Icons are cached as frozen BitmapSources and native icon handles are destroyed. File rows use recycling virtualization. A late folder-read result is discarded if its panel has been replaced. Background operations do not steal a newly opened panel when they finish.
 
+## Functional correction • 0.3
+
+A centered 166-DIP launcher was covering the lower side-rail controls at common window sizes. It is now top-anchored below the 394-DIP rail, and rail hit targets have explicit stacking priority. Windows tests check the hit-test ancestry of all four lower rail controls at both supported minimum and normal test sizes.
+
+The former Start-only decorative tray status is now a shortcut to an independent live-window tray. Tray state is separate from the main content panel. A second process supplies a real test window so CI verifies native enumeration and removal when that window closes. `EnumWindows` now uses a concrete Winapi delegate rather than an unmarshalable generic callback.
+
 ## Acceptance status
 
 Portable XML, duplicate-resource, wallpaper-signature and C# parser checks pass. Windows CI successfully compiled both EXEs in run 43892394803. COM behavior, rendered composition, UI automation, DPI coverage and frame pacing still need interactive Windows validation. A source parser cannot establish those results. The repository includes build CI and an interactive smoke-test script for that next step.
+
+0.3: Windows build and automated WPF interaction checks passed in run 43896505500, including rail hit targets, independent tray/Start state, real external-window listing, async file listing, dimmer response, theme rebuild and privacy-screen stacking. Test reports and rendered PNGs are published alongside the build. This does not certify all inputs, DPI settings, audio hardware or file-operation outcomes.

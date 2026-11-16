@@ -22,12 +22,24 @@ Outputs:
 
 For ARM64: `build.cmd -Runtime win-arm64`. The default target is x64. Unsigned binaries can trigger SmartScreen; there is no signing certificate bundled. Review the source before running. Do not bypass protections for files you do not trust.
 
+## 0.3 functional fixes
+
+- The launch lens no longer overlaps rail hit targets. The rail stays above normal panels; the privacy screen stays above the rail.
+- Fixed `EnumWindows` marshaling: generic `Func` callbacks cannot be passed to this native API. Window discovery now uses an explicit Winapi delegate.
+- Independent, toggleable **App tray**, reachable from the side rail with Start closed. It refreshes open windows every second, switches to selected windows, and removes closed ones. This is not a mirror of host notification-area icons.
+- Launcher tray shortcut opens the same working tray, instead of a decorative shortcut counter.
+- Startup discovery refreshes an already-open launcher. Invalid folder paths now explain the problem instead of doing nothing.
+- Local diagnostic logs available from Settings → Open diagnostic logs.
+- Windows CI now runs the EXE and checks controls, geometry/hit testing, independent tray/Start state, real external-window enumeration, file listing, brightness changes, and rebuilds at 1280×800 and 800×600 before publishing.
+
+The 0.3 build and these automated interaction checks passed in [run 43896505500](https://github.com/srmayanalexander2-cmyk/for-ai-for-making-fresh-os/actions/runs/43896505500). Tests use routed button clicks plus actual WPF hit-testing; they are not end-to-end physical mouse input or a hardware-volume test. Audio-device behavior, full DPI coverage and all file operations still need manual validation.
+
 ## Included
 
 - Uploaded cloud wallpaper embedded locally; narrow cyan tube rail, scalloped app/clock lenses, mint speech bubble, optional dock (off by default), rounded glass panels, light/dark themes.
 - Boot view, illustrated first-run welcome with reflected title, custom WAV boot sound, user-picked wallpaper, atomically written preferences.
 - Background shortcut discovery from per-user/common Start Menu and Desktop; real, cached shell icons; searchable, paginated launcher.
-- Actual visible-window enumerator/switcher (Ctrl+Tab inside FreshOS).
+- Actual visible-window enumerator/switcher (Ctrl+Tab inside FreshOS), and independent live app tray with window activation.
 - File browser with asynchronous folder listing, virtualized rows, path navigation, launch, folder creation, rename, background file copy, confirmed recycling, background ZIP extraction without overwrite.
 - Real system-volume slider and mute via Core Audio, with endpoint-volume polling while the panel is open. Reopen the panel after changing the default audio device.
 - Yellow speech-bubble volume/brightness controls with vector smiley companion and custom lime/cyan slider track; shell-only dimmer; host network/settings links.
@@ -67,9 +79,9 @@ There is no forced kiosk mode or secret-only escape. “Rest” displays a scree
 
 `FreshOS/` is the WPF app; `FreshOS.Setup/` is the installer. The builder creates the ignored `payload.zip` before building setup. `.github/workflows/build.yml` builds both on a Windows runner and uploads the EXEs. No binaries are checked in.
 
-Both the application and installer were successfully compiled on a Windows GitHub Actions runner. The build caught and resolved a WPF template-target error and an invalid Thickness constructor. Interactive Windows testing is still outstanding. Verify the checklist below before treating it as stable.
+Both the application and installer were successfully compiled on a Windows GitHub Actions runner. The build caught and resolved a WPF template-target error and an invalid Thickness constructor. Automated Windows interaction checks now also pass for 0.3. Manual hardware/user testing remains necessary; verify the checklist below before treating it as stable.
 
-Compiled x64 test build: [FreshOS-win-x64 download](https://github.com/srmayanalexander2-cmyk/for-ai-for-making-fresh-os/actions/runs/43892394803/artifacts/14236579518). Sign in to GitHub if prompted, extract the ZIP, and run FreshOS.exe to test without installing. Artifacts expire according to repository retention settings.
+Compiled x64 test build: [FreshOS-win-x64 download](https://github.com/srmayanalexander2-cmyk/for-ai-for-making-fresh-os/actions/runs/43896505500/artifacts/14239083558). Sign in to GitHub if prompted, extract the ZIP, and run FreshOS.exe to test without installing. Artifacts expire according to repository retention settings.
 
 ### Windows smoke checklist
 
@@ -102,3 +114,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\Smoke.ps1
 This opens FreshOS, accepts welcome if shown, invokes the launcher/settings, toggles dark mode twice to check visual-tree rebuilding, and requests normal close. It restores the original theme but can complete first-run onboarding. It has **not** been run in the Linux sandbox.
 
 For visual acceptance, test light/dark at 100%, 125%, 150%, and 200% DPI; fullscreen and 800×600 window; launcher pagination/search; keyboard-only operation; reduced motion; volume with/without audio hardware; large folders and ZIPs; reopening panels rapidly; and F12/Alt+F4 exit. There is no zero-bug or frame-rate guarantee without this hardware testing.
+
+### Built-in Windows regression tests
+
+```cmd
+FreshOS.exe --self-test --report-directory "%TEMP%\FreshOS-test-results"
+```
+
+Opens the app in an isolated-preferences test mode, creates a temporary file fixture and a separate test window, performs interaction/layout checks, saves PNG renders and a JSON report, and exits with a nonzero code on failure. Test fixtures are cleaned up. It does not alter your theme preferences or test real file deletions, actual audio output, or installed app shortcuts. CI gates the binary artifact on these checks.
