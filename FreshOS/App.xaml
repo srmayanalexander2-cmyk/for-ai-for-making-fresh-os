@@ -10,8 +10,7 @@
         <Setter Property="BorderBrush" Value="#CFFFFFFF"/>
         <Setter Property="FocusVisualStyle"><Setter.Value><Style><Setter Property="Control.Template"><Setter.Value><ControlTemplate><Border CornerRadius="16" BorderBrush="#19ACCC" BorderThickness="2" Margin="-2"/></ControlTemplate></Setter.Value></Setter></Style></Setter.Value></Setter>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
-            <Grid RenderTransformOrigin=".5,.5">
-                <Grid.RenderTransform><TranslateTransform x:Name="Press"/></Grid.RenderTransform>
+            <Grid x:Name="PressSurface" RenderTransformOrigin=".5,.5">
                 <Border x:Name="Shell" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="18">
                     <Grid><Border Margin="1" CornerRadius="17" BorderThickness="0,1,0,0" BorderBrush="#88FFFFFF" IsHitTestVisible="False"/>
                     <Border x:Name="Hover" CornerRadius="17" Background="#50FFFFFF" Opacity="0" IsHitTestVisible="False"/>
@@ -20,7 +19,7 @@
             </Grid>
             <ControlTemplate.Triggers>
                 <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Hover" Property="Opacity" Value="1"/><Setter TargetName="Shell" Property="BorderBrush" Value="#FFFFFF"/></Trigger>
-                <Trigger Property="IsPressed" Value="True"><Setter TargetName="Press" Property="Y" Value="1"/><Setter TargetName="Hover" Property="Opacity" Value="0.2"/></Trigger>
+                <Trigger Property="IsPressed" Value="True"><Setter TargetName="PressSurface" Property="Margin" Value="0,1,0,-1"/><Setter TargetName="Hover" Property="Opacity" Value="0.2"/></Trigger>
                 <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
             </ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
