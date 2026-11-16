@@ -12,6 +12,7 @@ public sealed partial class Desktop
     void ShowTray()
     {
         if(trayPanel!=null) { CloseTray(); return; }
+        trayArrow?.SetOpen(true,MotionReduced); launcherTrayArrow?.SetOpen(true,MotionReduced);
         var content=new StackPanel();
         var header=new DockPanel(); var close=Button("×",CloseTray); System.Windows.Automation.AutomationProperties.SetAutomationId(close,"FreshOS.Tray.Close"); close.ToolTip="Close app tray"; DockPanel.SetDock(close,Dock.Right); header.Children.Add(close); header.Children.Add(Text("App tray",25)); content.Children.Add(header);
         trayCount=Text("",13); content.Children.Add(trayCount);
@@ -31,6 +32,7 @@ public sealed partial class Desktop
     void CloseTray()
     {
         if(trayPanel!=null)workspace.Children.Remove(trayPanel);
+        trayArrow?.SetOpen(false,MotionReduced); launcherTrayArrow?.SetOpen(false,MotionReduced);
         trayPanel=null; trayWindows=null; trayCount=null; traySignature="";
     }
     void RefreshTray()

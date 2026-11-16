@@ -32,6 +32,13 @@ jobs:
             throw 'Interaction tests failed.'
           }
           Get-Content "$report/interaction-tests.json"
+          $setup = Start-Process (Join-Path $env:GITHUB_WORKSPACE 'artifacts/deliverables/FreshOS-Setup.exe') -ArgumentList '--self-test' -PassThru
+          if (-not $setup.WaitForExit(30000)) { $setup.Kill(); throw 'Setup test timed out.' }
+          if ($setup.ExitCode -ne 0) {
+            $failure = Get-Content 'setup-test-failure.txt' -Raw -ErrorAction SilentlyContinue
+            Write-Host ('::error::Setup test: ' + $failure.Replace("`r",'%0D').Replace("`n",'%0A'))
+            throw 'Setup resource/window test failed.'
+          }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

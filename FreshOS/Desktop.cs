@@ -24,24 +24,27 @@ public sealed partial class Desktop : Window
     TextBlock? largeClock, largeDate, lockClock;
     ScrollViewer? panelScroll;
     Button? launchButton;
+    FlipArrow? startArrow, trayArrow, launcherTrayArrow;
+    TextBlock? desktopClock;
     Border? panel; Grid? lockView; bool launcherOpen, super; int taps; string location=Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     Brush Ink => new SolidColorBrush(prefs.Dark?Color.FromRgb(222,250,250):Color.FromRgb(33,81,93));
     Brush Glass => new LinearGradientBrush(prefs.Dark?Color.FromArgb(245,23,58,72):Color.FromArgb(245,247,255,255),prefs.Dark?Color.FromArgb(235,17,104,119):Color.FromArgb(239,115,240,231),90);
     public Desktop(bool testMode=false)
     {
         selfTest=testMode; prefs=testMode?new Preferences { ReducedMotion=true,SetupDone=true }:Preferences.Load();
-        Title="FreshOS"; Width=1280; Height=800; MinWidth=800; MinHeight=600; WindowState=WindowState.Maximized; WindowStyle=WindowStyle.None;
+        Title="FreshOS"; Icon=new BitmapImage(new Uri("pack://application:,,,/Assets/FreshOS.ico")); Width=1280; Height=800; MinWidth=800; MinHeight=600; WindowState=WindowState.Normal; WindowStyle=WindowStyle.None; ResizeMode=ResizeMode.NoResize;
         FontFamily=new FontFamily("Segoe UI"); FontSize=14; UseLayoutRounding=true; SnapsToDevicePixels=true;
         TextOptions.SetTextFormattingMode(this,TextFormattingMode.Display);
         Content=root; ApplyWallpaper();
         root.Children.Add(workspace); root.Children.Add(shade); shade.Background=Brushes.Black; shade.Opacity=0; shade.IsHitTestVisible=false;
+        SourceInitialized+=(_,_)=>InitializeShellWindow();
         BuildDesktop(); SizeChanged+=(_,_)=>ResizePanel(); Closed+=(_,_)=>timer.Stop(); PreviewKeyDown+=Keys; timer.Tick+=(_,_)=>Tick(); if(!testMode)timer.Start();
         if(!testMode)Loaded+=async (_,_)=> { Boot(); var bootPanel=panel; var discovered=await Task.Run(Platform.Apps); apps.AddRange(discovered); if(launcherOpen)ShowApps(); await Task.Delay(650); if(IsLoaded && panel==bootPanel) { ClosePanel(); if(!prefs.SetupDone) Welcome(); else PlayBoot(); } };
     }
     static TextBlock Text(string s,double size=16) => new() { Text=s,FontSize=size,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(8),VerticalAlignment=VerticalAlignment.Center };
     Button Button(string text,Action action)
     {
-        var b=new Button { Content=text };
+        var b=new Button { Content=new TextBlock { Text=text,TextWrapping=TextWrapping.Wrap,TextAlignment=TextAlignment.Center } };
         System.Windows.Automation.AutomationProperties.SetName(b,text);
         b.Click+=(_,_)=>Safe(action);
         b.MouseEnter+=(_,_)=> { if(!MotionReduced)b.BeginAnimation(OpacityProperty,new System.Windows.Media.Animation.DoubleAnimation(.88,1,TimeSpan.FromMilliseconds(140))); };
@@ -74,38 +77,44 @@ public sealed partial class Desktop : Window
         workspace.Children.Clear(); workspace.ForegroundSafe(Ink);
         Resources["FreshInk"]=Ink;
         Resources["FreshButton"]=new LinearGradientBrush(prefs.Dark?Color.FromRgb(43,107,123):Color.FromArgb(238,255,255,255),prefs.Dark?Color.FromRgb(22,72,91):Color.FromArgb(210,191,244,238),90);
-        var rail=new Border { Width=52,Height=394,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,CornerRadius=new CornerRadius(0,0,29,0),Background=Aero.Tube(prefs.Dark),BorderBrush=new SolidColorBrush(Color.FromArgb(160,255,255,255)),BorderThickness=new Thickness(0,0,1,1) };
+        var rail=new Border { Width=64,Height=420,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,CornerRadius=new CornerRadius(0,0,29,0),Background=Aero.Tube(prefs.Dark),BorderBrush=new SolidColorBrush(Color.FromArgb(160,255,255,255)),BorderThickness=new Thickness(0,0,1,1) };
         var railItems=new StackPanel { Margin=new Thickness(2,8,2,8) }; rail.Child=railItems;
         var browser=Button("◉",()=> { var a=apps.FirstOrDefault(a=>a.Name.Contains("Chrome",StringComparison.OrdinalIgnoreCase)||a.Name.Contains("Edge",StringComparison.OrdinalIgnoreCase)); if(a.Path!=null)Launch(a.Path); else ShowApps(); });
         browser.Padding=new Thickness(0); browser.FontSize=29; browser.Background=Brushes.Transparent; browser.BorderBrush=Brushes.Transparent; browser.ToolTip="Open your browser"; railItems.Children.Add(browser);
         var caption=Text("Apps",10); caption.TextAlignment=TextAlignment.Center; caption.Margin=new Thickness(0); railItems.Children.Add(caption);
-        railItems.Children.Add(new Border { Height=145 });
-        clock.TextAlignment=TextAlignment.Center; clock.FontSize=13; clock.Margin=new Thickness(0,0,0,6); clock.Foreground=Ink; railItems.Children.Add(clock);
-        foreach(var item in new (string Glyph,string Tip,Action Action)[]{("◀","Your windows · Ctrl+Tab",ShowSwitcher),("◔","System tray",ShowTray),("♫","Volume",ShowVolume),("☼","Brightness",ShowBrightness)})
+        railItems.Children.Add(new Border { Height=115 });
+        clock.TextAlignment=TextAlignment.Center; clock.FontSize=16; clock.TextWrapping=TextWrapping.NoWrap; clock.Margin=new Thickness(0,0,0,10); clock.LineHeight=24; clock.Foreground=Ink; railItems.Children.Add(clock);
+        foreach(var item in new (string Glyph,string Tip,Action Action)[]{("◀","Your windows · Ctrl+Tab",ShowSwitcher),("➜","App tray",ShowTray),("♫","Volume",ShowVolume),("☼","Brightness",ShowBrightness)})
         {
             var b=Button(item.Glyph,item.Action);
-            string controlId=item.Tip.StartsWith("Your windows")?"Switcher":item.Tip.StartsWith("System tray")?"Tray":item.Tip.StartsWith("Volume")?"Volume":"Brightness";
+            string controlId=item.Tip.StartsWith("Your windows")?"Switcher":item.Tip.StartsWith("App tray")?"Tray":item.Tip.StartsWith("Volume")?"Volume":"Brightness";
             System.Windows.Automation.AutomationProperties.SetAutomationId(b,"FreshOS.Rail."+controlId);
             System.Windows.Automation.AutomationProperties.SetName(b,item.Tip);
-            b.Padding=new Thickness(0); b.Margin=new Thickness(0); b.MinHeight=29; b.FontSize=22; b.Background=Brushes.Transparent; b.BorderBrush=Brushes.Transparent; b.ToolTip=item.Tip; railItems.Children.Add(b);
+            b.Padding=new Thickness(0); b.Margin=new Thickness(0); b.MinHeight=29; b.FontSize=22; b.Background=Brushes.Transparent; b.BorderBrush=Brushes.Transparent; b.ToolTip=item.Tip;
+            if(controlId=="Tray") { trayArrow=new FlipArrow(24); b.Content=trayArrow; }
+            railItems.Children.Add(b);
         }
         Panel.SetZIndex(rail,50); workspace.Children.Add(rail);
-        var lens=new AeroMedallion { Scalloped=false,Dark=prefs.Dark,Width=166,Height=166,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(-109,404,0,0) };
+        var lens=new AeroMedallion { Scalloped=false,Dark=prefs.Dark,Width=166,Height=166,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(-96,430,0,0) };
         launchButton=Button("➜",()=> { if(launcherOpen)ClosePanel(); else ShowApps(); });
         System.Windows.Automation.AutomationProperties.SetAutomationId(launchButton,"FreshOS.Launcher");
+        startArrow=new FlipArrow(46); launchButton.Content=startArrow;
         launchButton.FontSize=46; launchButton.Foreground=new LinearGradientBrush(Colors.White,Color.FromRgb(0,255,108),90); launchButton.Background=Brushes.Transparent; launchButton.BorderBrush=Brushes.Transparent; launchButton.Padding=new Thickness(0); launchButton.Margin=new Thickness(98,0,0,0); launchButton.ToolTip="Open / close All Apps";
         lens.Children.Add(launchButton); workspace.Children.Add(lens);
+        desktopClock=Text("",16); desktopClock.TextAlignment=TextAlignment.Right; desktopClock.TextWrapping=TextWrapping.NoWrap; desktopClock.Foreground=Ink;
+        System.Windows.Automation.AutomationProperties.SetAutomationId(desktopClock,"FreshOS.Desktop.Clock");
+        var timeCard=new Border { Child=desktopClock,Background=Glass,CornerRadius=new CornerRadius(20),Padding=new Thickness(10,4,10,4),HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(12) }; workspace.Children.Add(timeCard);
         if(prefs.ShowDock)
         {
             var bottom=new Border { Background=Glass,CornerRadius=new CornerRadius(27),Padding=new Thickness(8,3,8,3),HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Bottom,Margin=new Thickness(75,0,20,18) };
             var dock=new WrapPanel(); bottom.Child=dock;
             dock.Children.Add(Button("All Apps",ShowApps)); dock.Children.Add(Button("Files",()=>ShowFiles(location))); dock.Children.Add(Button("Settings",Settings)); dock.Children.Add(tasks); dock.Children.Add(Button("Lock",()=>Lock(false))); workspace.Children.Add(bottom);
         }
-        var menu=new ContextMenu(); foreach(var (label,action) in new (string,Action)[]{("All apps",ShowApps),("Files",()=>ShowFiles(location)),("Personalize",Settings),("Lock",()=>Lock(false)),("Exit FreshOS",Close)}) { var m=new MenuItem { Header=label }; m.Click+=(_,_)=>Safe(action); menu.Items.Add(m); } workspace.ContextMenu=menu;
+        var menu=new ContextMenu(); foreach(var (label,action) in new (string,Action)[]{("All apps",ShowApps),("Files",()=>ShowFiles(location)),("Personalize",Settings),("FreshOS window layout",ShowSnapLayouts),("Lock",()=>Lock(false)),("Exit FreshOS",Close)}) { var m=new MenuItem { Header=label }; m.Click+=(_,_)=>Safe(action); menu.Items.Add(m); } workspace.ContextMenu=menu;
         Tick();
     }
-    void Tick() { clock.Text=DateTime.Now.ToString("h:mm\nM/dd"); if(lockClock!=null)lockClock.Text=DateTime.Now.ToString("h:mm"); if(largeClock!=null)largeClock.Text=DateTime.Now.ToString("h:mm"); if(largeDate!=null)largeDate.Text=DateTime.Now.ToString("M/dd"); RefreshTray(); if(prefs.AutoLock && lockView==null && Platform.IdleSeconds>=prefs.LockMinutes*60) Lock(prefs.Screensaver); }
-    void Keys(object sender,KeyEventArgs e) { if(e.Key==Key.Escape) { if(lockView!=null) Unlock(); else if(trayPanel!=null)CloseTray(); else ClosePanel(); e.Handled=true; } if(e.Key==Key.F12) { Close(); e.Handled=true; } if(e.Key==Key.F11) { WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized; e.Handled=true; } if(lockView==null && e.Key==Key.Tab && Keyboard.Modifiers==ModifierKeys.Control) { ShowSwitcher(); e.Handled=true; } }
+    void Tick() { clock.Text=DateTime.Now.ToString("h:mm\nM/dd"); if(desktopClock!=null)desktopClock.Text=DateTime.Now.ToString("h:mm tt  •  MMM d"); if(lockClock!=null)lockClock.Text=DateTime.Now.ToString("h:mm"); if(largeClock!=null)largeClock.Text=DateTime.Now.ToString("h:mm"); if(largeDate!=null)largeDate.Text=DateTime.Now.ToString("MMM d"); RefreshTray(); if(prefs.AutoLock && lockView==null && Platform.IdleSeconds>=prefs.LockMinutes*60) Lock(prefs.Screensaver); }
+    void Keys(object sender,KeyEventArgs e) { if(e.Key==Key.Escape) { if(lockView!=null) Unlock(); else if(trayPanel!=null)CloseTray(); else ClosePanel(); e.Handled=true; } if(e.Key==Key.F12) { Close(); e.Handled=true; } if(e.Key==Key.F11) { SetFullscreen(!fullscreen); e.Handled=true; } if(lockView==null && e.Key==Key.Tab && Keyboard.Modifiers==ModifierKeys.Control) { ShowSwitcher(); e.Handled=true; } }
     void ResizePanel()
     {
         if(trayPanel!=null)
@@ -141,7 +150,7 @@ public sealed partial class Desktop : Window
             }
         }
         panel=null; panelScroll=null; largeClock=null; largeDate=null; launcherOpen=false;
-        if(launchButton!=null)launchButton.Content="➜";
+        startArrow?.SetOpen(false,MotionReduced); launcherTrayArrow=null;
     }
     void Boot() { var p=ShowPanel("freshOS",380); p.Children.Add(Text("◉",72)); p.Children.Add(Text("A breath of fresh air.",22)); p.Children.Add(new ProgressBar { IsIndeterminate=true,Height=6,Margin=new Thickness(10) }); }
     void PlayBoot() { if(File.Exists(prefs.BootSound)) Safe(()=>new SoundPlayer(prefs.BootSound).Play()); }
@@ -197,6 +206,7 @@ public sealed partial class Desktop : Window
     void Settings()
     {
         var p=ShowPanel("⚙  Make yourself at home",740);
+        p.Children.Add(Button("FreshOS fullscreen & custom snap layouts",ShowSnapLayouts));
         p.Children.Add(Text("PERSONALIZATION",12));
         var motion=new CheckBox { Content="Reduced motion • instant transitions",IsChecked=prefs.ReducedMotion }; motion.Click+=(_,_)=> { prefs.ReducedMotion=motion.IsChecked==true; prefs.Save(); }; p.Children.Add(motion);
         var texture=new CheckBox { Content="Fine glass texture & surface detail",IsChecked=prefs.MaterialTexture }; texture.Click+=(_,_)=> { prefs.MaterialTexture=texture.IsChecked==true; prefs.Save(); Settings(); }; p.Children.Add(texture);
@@ -211,7 +221,7 @@ public sealed partial class Desktop : Window
         p.Children.Add(Text("Idle timeout • minutes")); var minutes=new Slider { Minimum=1,Maximum=60,TickFrequency=1,IsSnapToTickEnabled=true,Value=prefs.LockMinutes,Margin=new Thickness(12) }; var value=Text(prefs.LockMinutes+" minutes"); minutes.ValueChanged+=(_,_)=> { prefs.LockMinutes=(int)minutes.Value; value.Text=prefs.LockMinutes+" minutes"; prefs.Save(); }; p.Children.Add(minutes); p.Children.Add(value);
         var saver=new CheckBox { Content="Breathing-clock screensaver",IsChecked=prefs.Screensaver }; saver.Click+=(_,_)=> { prefs.Screensaver=saver.IsChecked==true; prefs.Save(); }; p.Children.Add(saver);
         p.Children.Add(Text("FreshOS respects your system sleep settings. This privacy screen is not a password lock. Use your system account lock for security.",12));
-        p.Children.Add(Button("FreshOS 0.3 • "+(super?"Super features unlocked":"About this little world"),()=> { taps++; if(taps>=10) { super=true; Settings(); } }));
+        p.Children.Add(Button("FreshOS 0.4 • "+(super?"Super features unlocked":"About this little world"),()=> { taps++; if(taps>=10) { super=true; Settings(); } }));
         if(super) { p.Children.Add(Text("THE FOURTH WALL",20)); var startup=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup),"FreshOS.cmd"); var enabled=new CheckBox { Content="Launch FreshOS when I sign in (off by default)",IsChecked=File.Exists(startup) }; enabled.Click+=(_,_)=>Safe(()=> { if(enabled.IsChecked==true)File.WriteAllText(startup,"@echo off\r\nstart \"\" \""+Environment.ProcessPath+"\"\r\n"); else if(File.Exists(startup))File.Delete(startup); }); p.Children.Add(enabled); p.Children.Add(Button("Host system settings",()=>Platform.Open("ms-settings:"))); p.Children.Add(Button("Replay welcome",Welcome)); }
         p.Children.Add(Text("F12 or Alt+F4 always exits. No system apps are replaced. External app borders remain under their app’s control.",12));
         p.Children.Add(Button("Open diagnostic logs",()=> { Directory.CreateDirectory(Diagnostics.Folder); Platform.Open(Diagnostics.Folder); }));

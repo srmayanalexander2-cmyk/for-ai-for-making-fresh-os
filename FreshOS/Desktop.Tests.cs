@@ -24,6 +24,14 @@ public sealed partial class Desktop
             Button FindButton(string id) => Descendants(desktop).OfType<Button>().FirstOrDefault(b=>AutomationProperties.GetAutomationId(b)==id)??throw new Exception("Missing button: "+id);
             void Check(bool condition,string name) { if(!condition)throw new Exception("FAILED: "+name); checks.Add(name); }
             void Click(Button button) { button.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent)); desktop.UpdateLayout(); }
+            void CheckText(TextBlock text,string label)
+            {
+                desktop.UpdateLayout();
+                var measured=new FormattedText(text.Text,System.Globalization.CultureInfo.CurrentCulture,text.FlowDirection,new Typeface(text.FontFamily,text.FontStyle,text.FontWeight,text.FontStretch),text.FontSize,text.Foreground,VisualTreeHelper.GetDpi(text).PixelsPerDip);
+                if(text.TextWrapping==TextWrapping.Wrap)measured.MaxTextWidth=Math.Max(1,text.ActualWidth);
+                Check(text.ActualWidth>0 && text.ActualHeight>0,label+" is visible");
+                Check(measured.WidthIncludingTrailingWhitespace<=text.ActualWidth+2 && measured.Height<=text.ActualHeight+2,label+" text fits its measured box");
+            }
             void HitRail(string id)
             {
                 var button=FindButton(id); desktop.UpdateLayout();
@@ -39,10 +47,19 @@ public sealed partial class Desktop
                 desktop.Width=size.Item1; desktop.Height=size.Item2;
                 await desktop.Dispatcher.InvokeAsync(()=>desktop.UpdateLayout(),DispatcherPriority.ApplicationIdle);
                 foreach(string id in new[]{"Tray","Volume","Brightness","Switcher"})HitRail("FreshOS.Rail."+id);
+                CheckText(desktop.clock,"rail clock/date"); CheckText(desktop.desktopClock!,"desktop clock/date");
                 Click(FindButton("FreshOS.Rail.Tray")); Check(desktop.trayPanel!=null && desktop.panel==null,"tray opens from desktop without Start");
-                desktop.ShowApps(); Check(desktop.trayPanel!=null && desktop.launcherOpen,"tray and Start have independent state");
+                Check(desktop.trayArrow!.IsOpen && desktop.trayArrow.Angle==180,"tray arrow points to open state");
+                desktop.ShowApps(); desktop.UpdateLayout(); Check(desktop.trayPanel!=null && desktop.launcherOpen,"tray and Start have independent state");
+                CheckText(desktop.largeClock!,"launcher time"); CheckText(desktop.largeDate!,"launcher date");
+                Check(desktop.startArrow!.IsOpen && desktop.startArrow.Angle==180,"Start arrow points to open state");
+                var clockBounds=desktop.largeClock!.TransformToAncestor(desktop.panel!).TransformBounds(new Rect(desktop.largeClock.RenderSize));
+                var dateBounds=desktop.largeDate!.TransformToAncestor(desktop.panel!).TransformBounds(new Rect(desktop.largeDate.RenderSize));
+                Check(!clockBounds.IntersectsWith(dateBounds),"launcher date and time do not overlap");
                 desktop.ClosePanel(); Check(desktop.trayPanel!=null,"closing Start does not destroy tray");
+                Check(!desktop.startArrow!.IsOpen && desktop.startArrow.Angle==0,"Start arrow returns to closed state");
                 Click(FindButton("FreshOS.Rail.Tray")); Check(desktop.trayPanel==null,"rail toggles tray closed");
+                Check(!desktop.trayArrow!.IsOpen && desktop.trayArrow.Angle==0,"tray arrow returns to closed state");
                 Click(FindButton("FreshOS.Rail.Brightness"));
                 var brightness=Descendants(desktop.panel!).OfType<Slider>().Single(); brightness.Value=45;
                 Check(Math.Abs(desktop.shade.Opacity-.55)<.001,"brightness slider changes shell dimmer");
@@ -52,6 +69,13 @@ public sealed partial class Desktop
                 Click(FindButton("FreshOS.Rail.Tray")); Check(desktop.trayPanel!=null,"tray survives theme rebuild"); desktop.CloseTray();
             }
             desktop.Width=1280; desktop.Height=800; desktop.UpdateLayout();
+            // Real animation timing, separate from the deterministic reduced-motion layout cases.
+            var animated=new FlipArrow(); animated.SetOpen(true,false); await Task.Delay(350);
+            Check(animated.IsOpen && Math.Abs(animated.Angle-180)<.5,"arrow animation reaches open angle");
+            animated.SetOpen(false,false); await Task.Delay(350);
+            Check(!animated.IsOpen && Math.Abs(animated.Angle)<.5,"arrow animation reaches closed angle");
+            Check(desktop.Icon!=null,"main window has the FreshOS icon");
+            Check(desktop.ResizeMode==ResizeMode.NoResize && desktop.WindowStyle==WindowStyle.None,"shell has no native resize or snap chrome");
             File.WriteAllText(Path.Combine(temporary,"sample.txt"),"FreshOS file-browser fixture");
             desktop.ShowFiles(temporary); desktop.UpdateLayout();
             for(int i=0;i<60 && Descendants(desktop.panel!).OfType<ListBox>().Single().Items.Count==0;i++)await Task.Delay(50);

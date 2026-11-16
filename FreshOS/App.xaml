@@ -46,7 +46,7 @@
         <Setter Property="Margin" Value="8,10"/><Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><DockPanel LastChildFill="True">
             <Grid Width="44" Height="25" Margin="0,0,12,0" VerticalAlignment="Center"><Border x:Name="Well" CornerRadius="13" Background="#50779A9F" BorderBrush="#A0FFFFFF" BorderThickness="1"/><Border x:Name="Knob" Width="19" Height="19" CornerRadius="10" HorizontalAlignment="Left" Margin="3,0,3,0" Background="#F4FFFFFF" BorderBrush="#91D8DF" BorderThickness="1"/></Grid>
-            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True"/>
+            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True"><ContentPresenter.ContentTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate></ContentPresenter.ContentTemplate></ContentPresenter>
         </DockPanel><ControlTemplate.Triggers>
             <Trigger Property="IsChecked" Value="True"><Setter TargetName="Well" Property="Background" Value="#27DDB1"/><Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/></Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Well" Property="BorderBrush" Value="#176D8C"/><Setter TargetName="Well" Property="BorderThickness" Value="2"/></Trigger>
