@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><EnableWindowsTargeting>true</EnableWindowsTargeting><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>FreshOS-Setup</AssemblyName><RootNamespace>FreshOS.Setup</RootNamespace><StartupObject>FreshOS.Setup.Program</StartupObject></PropertyGroup>
+<ItemGroup><EmbeddedResource Include="payload.zip" /></ItemGroup>
+</Project>
