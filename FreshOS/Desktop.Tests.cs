@@ -53,22 +53,26 @@ public sealed partial class Desktop
             }
             desktop.Width=1280; desktop.Height=800; desktop.UpdateLayout();
             File.WriteAllText(Path.Combine(temporary,"sample.txt"),"FreshOS file-browser fixture");
-            desktop.ShowFiles(temporary);
+            desktop.ShowFiles(temporary); desktop.UpdateLayout();
             for(int i=0;i<60 && Descendants(desktop.panel!).OfType<ListBox>().Single().Items.Count==0;i++)await Task.Delay(50);
             var list=Descendants(desktop.panel!).OfType<ListBox>().Single();
             Check(list.Items.OfType<Entry>().Any(e=>Path.GetFileName(e.Path)=="sample.txt"),"file browser asynchronously displays real filesystem entries");
             desktop.ClosePanel();
             fixture=Process.Start(new ProcessStartInfo(Environment.ProcessPath!,"--window-fixture") { UseShellExecute=true })??throw new Exception("Cannot start fixture");
             for(int i=0;i<60 && !Platform.Windows().Any(w=>w.Title=="FreshOS interaction fixture");i++)await Task.Delay(100);
-            desktop.ShowTray(); desktop.RefreshTray();
+            desktop.ShowTray(); desktop.UpdateLayout(); desktop.RefreshTray();
             Check(Descendants(desktop.trayPanel!).OfType<Button>().Any(b=>AutomationProperties.GetName(b)=="FreshOS interaction fixture"),"tray lists a real window belonging to another process");
             SaveImage(desktop,directory,"tray.png");
             fixture.CloseMainWindow(); await fixture.WaitForExitAsync(); desktop.RefreshTray();
             Check(!Descendants(desktop.trayPanel!).OfType<Button>().Any(b=>AutomationProperties.GetName(b)=="FreshOS interaction fixture"),"tray removes a closed external window");
             desktop.CloseTray(); desktop.ShowApps(); desktop.UpdateLayout(); SaveImage(desktop,directory,"launcher.png"); desktop.ClosePanel();
             desktop.Lock(false); Check(desktop.lockView!=null && Panel.GetZIndex(desktop.lockView)>50,"privacy screen covers rail"); desktop.Unlock();
-            desktop.Settings(); Check(Descendants(desktop.panel!).OfType<CheckBox>().Any(b=>AutomationProperties.GetAutomationId(b)=="FreshOS.Theme"),"settings builds a usable theme control"); desktop.ClosePanel();
+            desktop.Settings(); desktop.UpdateLayout(); Check(Descendants(desktop.panel!).OfType<CheckBox>().Any(b=>AutomationProperties.GetAutomationId(b)=="FreshOS.Theme"),"settings builds a usable theme control"); desktop.ClosePanel();
             File.WriteAllText(Path.Combine(directory,"interaction-tests.json"),JsonSerializer.Serialize(new { passed=checks.Count,checks },new JsonSerializerOptions { WriteIndented=true }));
+        }
+        catch(Exception error)
+        {
+            throw new Exception("Interaction test failed after: "+(checks.LastOrDefault()??"initialization"),error);
         }
         finally
         {
