@@ -22,6 +22,19 @@ Outputs:
 
 For ARM64: `build.cmd -Runtime win-arm64`. The default target is x64. Unsigned binaries can trigger SmartScreen; there is no signing certificate bundled. Review the source before running. Do not bypass protections for files you do not trust.
 
+## 0.4 layout, arrows, setup and windowing
+
+- Replaced the launcher’s overlapping Canvas composition with measured columns/rows and a separate clock column. Clock/date use no-wrap text and have Windows text-bounds tests.
+- Added a persistent desktop clock/date and a wider, more readable side rail. Button labels wrap; checkbox descriptions wrap. Shortcut names intentionally ellipsize and expose their full names in tooltips.
+- Start and tray use vector arrows with explicit open/closed state and 240 ms eased rotation in both directions. Reduced-motion settings intentionally use instant state changes.
+- Added a multi-resolution FreshOS icon to both EXEs, the main window, setup window and installer-created shortcuts.
+- Setup is now a welcome → preferences → installation → finish wizard, with staging, per-user shortcuts and theme configuration. Installed copies skip redundant first-run onboarding; portable copies still offer Welcome.
+- FreshOS now uses monitor-sized borderless fullscreen instead of maximized work-area sizing. F11 switches to/from a centered window.
+- Native resize/maximize chrome is disabled for this window. Settings → FreshOS fullscreen & custom snap layouts offers Fullscreen, Center, Left and Right. Half-width layouts are refused if they would make the shell narrower than its readable minimum.
+- These changes are **app-local**. Other apps retain Windows snapping/taskbar behavior. System taskbar access and Alt+Tab remain available; no global shell suppression or always-on-top input trap is installed.
+
+Both EXEs and the expanded Windows interaction tests passed in [run 43901111868](https://github.com/srmayanalexander2-cmyk/for-ai-for-making-fresh-os/actions/runs/43901111868). New checks cover clock/date text bounds, non-overlap, arrow state/animation completion, embedded icons, setup window/payload loading, and native monitor-bounds fullscreen. Full installer execution and multi-DPI/multi-monitor hardware coverage still require manual testing.
+
 ## 0.3 functional fixes
 
 - The launch lens no longer overlaps rail hit targets. The rail stays above normal panels; the privacy screen stays above the rail.
@@ -47,11 +60,11 @@ The 0.3 build and these automated interaction checks passed in [run 43896505500]
 - Version button clicked 10 times reveals “Fourth Wall”: optional sign-in startup and host settings.
 - Always-accessible exit, restart-app and rest controls; right-click desktop menu.
 
-## Visual refinement • 0.2
+## Original visual refinement • 0.2 (see 0.4 layout corrections above)
 
 This pass moves the default composition toward the supplied handmade references, rather than a conventional desktop taskbar:
 
-- 52-DIP side rail with a horizontal cylindrical-light gradient and hairline rim.
+- 64-DIP side rail with a horizontal cylindrical-light gradient and hairline rim.
 - 48-tooth vector scalloped lenses, radial cyan falloff, inset lens rings, translucent specular sheen.
 - Real app icons loaded off the UI thread; six shortcuts per page keep the compact lens navigable.
 - Frozen, deterministic micro-grain brush; subtly layered panel edges and cool ambient shadows.
@@ -81,7 +94,7 @@ There is no forced kiosk mode or secret-only escape. “Rest” displays a scree
 
 Both the application and installer were successfully compiled on a Windows GitHub Actions runner. The build caught and resolved a WPF template-target error and an invalid Thickness constructor. Automated Windows interaction checks now also pass for 0.3. Manual hardware/user testing remains necessary; verify the checklist below before treating it as stable.
 
-Compiled x64 test build: [FreshOS-win-x64 download](https://github.com/srmayanalexander2-cmyk/for-ai-for-making-fresh-os/actions/runs/43896505500/artifacts/14239083558). Sign in to GitHub if prompted, extract the ZIP, and run FreshOS.exe to test without installing. Artifacts expire according to repository retention settings.
+Compiled x64 test build: [FreshOS-win-x64 download](https://github.com/srmayanalexander2-cmyk/for-ai-for-making-fresh-os/actions/runs/43901111868/artifacts/14240304031). Sign in to GitHub if prompted, extract the ZIP, and run FreshOS.exe to test without installing. Artifacts expire according to repository retention settings.
 
 ### Windows smoke checklist
 

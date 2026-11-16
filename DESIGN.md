@@ -42,3 +42,15 @@ The former Start-only decorative tray status is now a shortcut to an independent
 Portable XML, duplicate-resource, wallpaper-signature and C# parser checks pass. Windows CI successfully compiled both EXEs in run 43892394803. COM behavior, rendered composition, UI automation, DPI coverage and frame pacing still need interactive Windows validation. A source parser cannot establish those results. The repository includes build CI and an interactive smoke-test script for that next step.
 
 0.3: Windows build and automated WPF interaction checks passed in run 43896505500, including rail hit targets, independent tray/Start state, real external-window listing, async file listing, dimmer response, theme rebuild and privacy-screen stacking. Test reports and rendered PNGs are published alongside the build. This does not certify all inputs, DPI settings, audio hardware or file-operation outcomes.
+
+## Layout corrections • 0.4
+
+The launcher now uses measured columns and rows instead of an absolute-coordinate artboard: a 396-DIP app lens, separate 250-DIP clock lens, and two-column shortcut buttons. The clock has its own 180-DIP text measure. A persistent desktop clock remains visible with Start closed. The rail is 64 DIPs wide to fit time/date without wrapping.
+
+Vector arrows are separate visual components rather than changing Unicode glyphs. Their explicit `IsOpen` state drives a 240 ms eased 0↔180° rotation; reduced motion immediately sets the same end state. Tray and Start each own their arrow state.
+
+Fullscreen uses native monitor bounds through SetWindowPos, avoiding the taskbar-sized gap left by ordinary maximization. NoResize/None chrome removes the shell’s native resize/maximize affordances. A FreshOS palette controls its own fullscreen/center/half-width positions; it does not intercept other applications' snap or taskbar behavior.
+
+Setup now has dedicated wizard pages with scrolling content and fixed footer navigation. Both binaries share the multi-resolution icon. The installer extracts into a staging directory before replacing an existing installation, creates per-user icon-bearing shortcuts, and marks the installed app's welcome setup complete. This is not an MSI package or an automatic replacement for the system desktop.
+
+Windows build 43901111868 passed the expanded interaction suite, including native fullscreen bounds, time/date text fitting and non-overlap, both arrow animation endpoints, and setup resource loading. This does not establish that every text element at every DPI or every installer failure path is correct; manual visual and installation testing remains required.
