@@ -5,7 +5,12 @@ using System.Text;
 namespace FreshOS;
 internal static class Platform
 {
-    [DllImport("user32.dll")] static extern bool EnumWindows(Func<IntPtr,IntPtr,bool> callback, IntPtr p);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    delegate bool WindowCallback(IntPtr window,IntPtr parameter);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool EnumWindows(WindowCallback callback, IntPtr p);
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder text, int size);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint id);
