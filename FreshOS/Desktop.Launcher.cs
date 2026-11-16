@@ -17,7 +17,7 @@ public sealed partial class Desktop
         Canvas.SetLeft(appsLens,8); Canvas.SetTop(appsLens,187); art.Children.Add(appsLens);
         var appContents=new StackPanel { Width=300,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(0,0,0,4) }; appsLens.Children.Add(appContents);
         var title=Text("All Apps",27); title.TextAlignment=TextAlignment.Center; title.Foreground=Ink; title.FontWeight=FontWeights.SemiBold; title.Margin=new Thickness(0,0,0,3); appContents.Children.Add(title);
-        var search=new TextBox { ToolTip="Search your PC’s app shortcuts",Height=34,Padding=new Thickness(10,5),FontSize=12,Margin=new Thickness(16,3,16,4) }; System.Windows.Automation.AutomationProperties.SetName(search,"Search installed applications"); appContents.Children.Add(search);
+        var search=new TextBox { ToolTip="Search your PC’s app shortcuts",Height=34,Padding=new Thickness(10,5,10,5),FontSize=12,Margin=new Thickness(16,3,16,4) }; System.Windows.Automation.AutomationProperties.SetName(search,"Search installed applications"); appContents.Children.Add(search);
         var tiles=new UniformGrid { Columns=3,Rows=2,Height=146 }; appContents.Children.Add(tiles);
         var paging=new StackPanel { Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Center }; appContents.Children.Add(paging);
         int page=0; const int pageSize=6;
