@@ -25,7 +25,12 @@ jobs:
           $report = Join-Path $env:GITHUB_WORKSPACE 'artifacts/test-results'
           $process = Start-Process $exe -ArgumentList @('--self-test', '--report-directory', ('"' + $report + '"')) -PassThru
           if (-not $process.WaitForExit(90000)) { $process.Kill(); throw 'Interaction tests timed out.' }
-          if ($process.ExitCode -ne 0) { Get-Content "$report/failure.txt" -ErrorAction SilentlyContinue; throw 'Interaction tests failed.' }
+          if ($process.ExitCode -ne 0) {
+            $failure = Get-Content "$report/failure.txt" -Raw -ErrorAction SilentlyContinue
+            if (-not $failure) { $failure = "Interaction test process exited with code $($process.ExitCode) without a report." }
+            Write-Host ('::error::' + $failure.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
+            throw 'Interaction tests failed.'
+          }
           Get-Content "$report/interaction-tests.json"
       - uses: actions/upload-artifact@v4
         if: always()
