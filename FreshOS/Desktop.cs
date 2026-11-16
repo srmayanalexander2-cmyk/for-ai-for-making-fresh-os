@@ -14,7 +14,8 @@ using Microsoft.Win32;
 namespace FreshOS;
 public sealed partial class Desktop : Window
 {
-    readonly Preferences prefs=Preferences.Load();
+    readonly Preferences prefs;
+    readonly bool selfTest;
     readonly Grid root=new(), workspace=new(), shade=new();
     readonly StackPanel tasks=new();
     readonly TextBlock clock=new();
@@ -26,15 +27,16 @@ public sealed partial class Desktop : Window
     Border? panel; Grid? lockView; bool launcherOpen, super; int taps; string location=Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     Brush Ink => new SolidColorBrush(prefs.Dark?Color.FromRgb(222,250,250):Color.FromRgb(33,81,93));
     Brush Glass => new LinearGradientBrush(prefs.Dark?Color.FromArgb(245,23,58,72):Color.FromArgb(245,247,255,255),prefs.Dark?Color.FromArgb(235,17,104,119):Color.FromArgb(239,115,240,231),90);
-    public Desktop()
+    public Desktop(bool testMode=false)
     {
+        selfTest=testMode; prefs=testMode?new Preferences { ReducedMotion=true,SetupDone=true }:Preferences.Load();
         Title="FreshOS"; Width=1280; Height=800; MinWidth=800; MinHeight=600; WindowState=WindowState.Maximized; WindowStyle=WindowStyle.None;
         FontFamily=new FontFamily("Segoe UI"); FontSize=14; UseLayoutRounding=true; SnapsToDevicePixels=true;
         TextOptions.SetTextFormattingMode(this,TextFormattingMode.Display);
         Content=root; ApplyWallpaper();
         root.Children.Add(workspace); root.Children.Add(shade); shade.Background=Brushes.Black; shade.Opacity=0; shade.IsHitTestVisible=false;
-        BuildDesktop(); SizeChanged+=(_,_)=>ResizePanel(); Closed+=(_,_)=>timer.Stop(); PreviewKeyDown+=Keys; timer.Tick+=(_,_)=>Tick(); timer.Start();
-        Loaded+=async (_,_)=> { Boot(); var bootPanel=panel; var discovered=await Task.Run(Platform.Apps); apps.AddRange(discovered); await Task.Delay(650); if(IsLoaded && panel==bootPanel) { ClosePanel(); if(!prefs.SetupDone) Welcome(); else PlayBoot(); } };
+        BuildDesktop(); SizeChanged+=(_,_)=>ResizePanel(); Closed+=(_,_)=>timer.Stop(); PreviewKeyDown+=Keys; timer.Tick+=(_,_)=>Tick(); if(!testMode)timer.Start();
+        if(!testMode)Loaded+=async (_,_)=> { Boot(); var bootPanel=panel; var discovered=await Task.Run(Platform.Apps); apps.AddRange(discovered); if(launcherOpen)ShowApps(); await Task.Delay(650); if(IsLoaded && panel==bootPanel) { ClosePanel(); if(!prefs.SetupDone) Welcome(); else PlayBoot(); } };
     }
     static TextBlock Text(string s,double size=16) => new() { Text=s,FontSize=size,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(8),VerticalAlignment=VerticalAlignment.Center };
     Button Button(string text,Action action)
@@ -45,7 +47,7 @@ public sealed partial class Desktop : Window
         b.MouseEnter+=(_,_)=> { if(!MotionReduced)b.BeginAnimation(OpacityProperty,new System.Windows.Media.Animation.DoubleAnimation(.88,1,TimeSpan.FromMilliseconds(140))); };
         return b;
     }
-    static void Safe(Action a) { try { a(); } catch(Exception e) { MessageBox.Show(e.Message,"FreshOS",MessageBoxButton.OK,MessageBoxImage.Information); } }
+    void Safe(Action a) { try { a(); } catch(Exception e) { if(selfTest)throw; Diagnostics.Write("UI action failed",e); MessageBox.Show(e.Message,"FreshOS",MessageBoxButton.OK,MessageBoxImage.Information); } }
     void ApplyWallpaper()
     {
         try
@@ -66,7 +68,7 @@ public sealed partial class Desktop : Window
     }
     void BuildDesktop()
     {
-        ClosePanel();
+        ClosePanel(); CloseTray();
         if(clock.Parent is Panel clockParent)clockParent.Children.Remove(clock);
         if(tasks.Parent is Panel taskParent)taskParent.Children.Remove(tasks);
         workspace.Children.Clear(); workspace.ForegroundSafe(Ink);
@@ -81,10 +83,14 @@ public sealed partial class Desktop : Window
         clock.TextAlignment=TextAlignment.Center; clock.FontSize=13; clock.Margin=new Thickness(0,0,0,6); clock.Foreground=Ink; railItems.Children.Add(clock);
         foreach(var item in new (string Glyph,string Tip,Action Action)[]{("◀","Your windows · Ctrl+Tab",ShowSwitcher),("◔","System tray",ShowTray),("♫","Volume",ShowVolume),("☼","Brightness",ShowBrightness)})
         {
-            var b=Button(item.Glyph,item.Action); b.Padding=new Thickness(0); b.Margin=new Thickness(0); b.MinHeight=29; b.FontSize=22; b.Background=Brushes.Transparent; b.BorderBrush=Brushes.Transparent; b.ToolTip=item.Tip; railItems.Children.Add(b);
+            var b=Button(item.Glyph,item.Action);
+            string controlId=item.Tip.StartsWith("Your windows")?"Switcher":item.Tip.StartsWith("System tray")?"Tray":item.Tip.StartsWith("Volume")?"Volume":"Brightness";
+            System.Windows.Automation.AutomationProperties.SetAutomationId(b,"FreshOS.Rail."+controlId);
+            System.Windows.Automation.AutomationProperties.SetName(b,item.Tip);
+            b.Padding=new Thickness(0); b.Margin=new Thickness(0); b.MinHeight=29; b.FontSize=22; b.Background=Brushes.Transparent; b.BorderBrush=Brushes.Transparent; b.ToolTip=item.Tip; railItems.Children.Add(b);
         }
-        workspace.Children.Add(rail);
-        var lens=new AeroMedallion { Scalloped=false,Dark=prefs.Dark,Width=166,Height=166,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(-109,0,0,0) };
+        Panel.SetZIndex(rail,50); workspace.Children.Add(rail);
+        var lens=new AeroMedallion { Scalloped=false,Dark=prefs.Dark,Width=166,Height=166,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(-109,404,0,0) };
         launchButton=Button("➜",()=> { if(launcherOpen)ClosePanel(); else ShowApps(); });
         System.Windows.Automation.AutomationProperties.SetAutomationId(launchButton,"FreshOS.Launcher");
         launchButton.FontSize=46; launchButton.Foreground=new LinearGradientBrush(Colors.White,Color.FromRgb(0,255,108),90); launchButton.Background=Brushes.Transparent; launchButton.BorderBrush=Brushes.Transparent; launchButton.Padding=new Thickness(0); launchButton.Margin=new Thickness(98,0,0,0); launchButton.ToolTip="Open / close All Apps";
@@ -98,10 +104,15 @@ public sealed partial class Desktop : Window
         var menu=new ContextMenu(); foreach(var (label,action) in new (string,Action)[]{("All apps",ShowApps),("Files",()=>ShowFiles(location)),("Personalize",Settings),("Lock",()=>Lock(false)),("Exit FreshOS",Close)}) { var m=new MenuItem { Header=label }; m.Click+=(_,_)=>Safe(action); menu.Items.Add(m); } workspace.ContextMenu=menu;
         Tick();
     }
-    void Tick() { clock.Text=DateTime.Now.ToString("h:mm\nM/dd"); if(lockClock!=null)lockClock.Text=DateTime.Now.ToString("h:mm"); if(largeClock!=null)largeClock.Text=DateTime.Now.ToString("h:mm"); if(largeDate!=null)largeDate.Text=DateTime.Now.ToString("M/dd"); if(prefs.AutoLock && lockView==null && Platform.IdleSeconds>=prefs.LockMinutes*60) Lock(prefs.Screensaver); }
-    void Keys(object sender,KeyEventArgs e) { if(e.Key==Key.Escape) { if(lockView!=null) Unlock(); else ClosePanel(); e.Handled=true; } if(e.Key==Key.F12) { Close(); e.Handled=true; } if(e.Key==Key.F11) { WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized; e.Handled=true; } if(lockView==null && e.Key==Key.Tab && Keyboard.Modifiers==ModifierKeys.Control) { ShowSwitcher(); e.Handled=true; } }
+    void Tick() { clock.Text=DateTime.Now.ToString("h:mm\nM/dd"); if(lockClock!=null)lockClock.Text=DateTime.Now.ToString("h:mm"); if(largeClock!=null)largeClock.Text=DateTime.Now.ToString("h:mm"); if(largeDate!=null)largeDate.Text=DateTime.Now.ToString("M/dd"); RefreshTray(); if(prefs.AutoLock && lockView==null && Platform.IdleSeconds>=prefs.LockMinutes*60) Lock(prefs.Screensaver); }
+    void Keys(object sender,KeyEventArgs e) { if(e.Key==Key.Escape) { if(lockView!=null) Unlock(); else if(trayPanel!=null)CloseTray(); else ClosePanel(); e.Handled=true; } if(e.Key==Key.F12) { Close(); e.Handled=true; } if(e.Key==Key.F11) { WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized; e.Handled=true; } if(lockView==null && e.Key==Key.Tab && Keyboard.Modifiers==ModifierKeys.Control) { ShowSwitcher(); e.Handled=true; } }
     void ResizePanel()
     {
+        if(trayPanel!=null)
+        {
+            trayPanel.MaxWidth=Math.Max(260,ActualWidth-90); trayPanel.MaxHeight=Math.Max(300,ActualHeight-120);
+            if(trayPanel.Child is Grid layers && layers.Children.OfType<Border>().LastOrDefault()?.Child is ScrollViewer trayScroll)trayScroll.MaxHeight=Math.Max(180,ActualHeight-180);
+        }
         if(panel==null)return;
         panel.MaxWidth=Math.Max(240,ActualWidth-100);
         panel.MaxHeight=Math.Max(180,ActualHeight-70);
@@ -110,7 +121,7 @@ public sealed partial class Desktop : Window
     StackPanel ShowPanel(string title,double width=680)
     {
         ClosePanel(); var outer=new DockPanel(); var head=new DockPanel(); DockPanel.SetDock(head,Dock.Top);
-        var close=Button("×",ClosePanel); close.FontSize=22; close.ToolTip="Close · Escape"; close.Width=40; close.Padding=new Thickness(4); DockPanel.SetDock(close,Dock.Right); head.Children.Add(close);
+        var close=Button("×",ClosePanel); System.Windows.Automation.AutomationProperties.SetAutomationId(close,"FreshOS.Panel.Close"); close.FontSize=22; close.ToolTip="Close · Escape"; close.Width=40; close.Padding=new Thickness(4); DockPanel.SetDock(close,Dock.Right); head.Children.Add(close);
         var heading=Text(title,26); heading.FontWeight=FontWeights.Light; head.Children.Add(heading); outer.Children.Add(head);
         var body=new StackPanel(); panelScroll=new ScrollViewer { Content=body,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,PanningMode=PanningMode.VerticalOnly,Margin=new Thickness(0,12,0,0) }; outer.Children.Add(panelScroll);
         panel=Bubble(outer,width); panel.HorizontalAlignment=HorizontalAlignment.Center; panel.VerticalAlignment=VerticalAlignment.Center; panel.SetValue(TextElement.ForegroundProperty,Ink); workspace.Children.Add(panel); ResizePanel(); Aero.Enter(panel,MotionReduced); return body;
@@ -138,15 +149,14 @@ public sealed partial class Desktop : Window
     void ShowApps() => ShowAeroLauncher();
     void Launch(string path) { Platform.Open(path); ClosePanel(); var b=Button(Path.GetFileNameWithoutExtension(path),()=>Platform.Open(path)); b.MaxWidth=180; if(tasks.Children.Count>3) tasks.Children.RemoveAt(0); tasks.Children.Add(b); }
     void ShowSwitcher() { var p=ShowPanel("Your windows",760); p.Children.Add(Text("Real apps, right where you left them. Select a window to return to it.")); var windows=Platform.Windows(); foreach(var w in windows) p.Children.Add(Button("▣   "+w.Title,()=> { ClosePanel(); Platform.Activate(w.Handle); })); if(windows.Count==0) p.Children.Add(Text("No other app windows are open.")); }
-    void ShowTray() { var p=ShowPanel("A moment of calm",440); p.Children.Add(Text(DateTime.Now.ToString("dddd, MMMM d\nh:mm tt"),26)); p.Children.Add(Button("♫  Sound",ShowVolume)); p.Children.Add(Button("☼  Display dimmer",ShowBrightness)); p.Children.Add(Button("Network settings",()=>Platform.Open("ms-settings:network"))); p.Children.Add(Text("System tray icons remain managed by the host desktop. FreshOS does not intercept their notifications.",12)); }
     void ShowVolume() => ShowAeroVolume();
     void ShowBrightness() => ShowAeroBrightness();
     void Power() { var p=ShowPanel("See you soon",450); p.Children.Add(Button("Lock desktop",()=>Lock(false))); p.Children.Add(Button("Rest • screensaver",()=>Lock(true))); p.Children.Add(Button("Restart FreshOS",()=> { Platform.Open(Environment.ProcessPath!); Close(); })); p.Children.Add(Button("Exit FreshOS",Close)); p.Children.Add(Text("Rest does not terminate any of your apps or change your PC’s power policy.")); }
-    void Lock(bool saver) { ClosePanel(); if(lockView!=null)return; lockView=new Grid { Background=new SolidColorBrush(Color.FromArgb(215,11,62,84)) }; var p=new StackPanel { VerticalAlignment=VerticalAlignment.Center,HorizontalAlignment=HorizontalAlignment.Center }; p.SetValue(TextElement.ForegroundProperty,Brushes.White); var time=Text(DateTime.Now.ToString("h:mm"),96); lockClock=time; time.Foreground=Brushes.White; time.TextAlignment=TextAlignment.Center; p.Children.Add(time); var date=Text(DateTime.Now.ToString("dddd, MMMM d"),24); date.Foreground=Brushes.White; p.Children.Add(date); p.Children.Add(Button("☻  Welcome back • unlock",Unlock)); p.Children.Add(Text("FreshOS privacy screen • not a secure account lock",13)); lockView.Children.Add(p); if(saver && !MotionReduced) { var a=new System.Windows.Media.Animation.DoubleAnimation(.35,1,TimeSpan.FromSeconds(4)) { AutoReverse=true,RepeatBehavior=System.Windows.Media.Animation.RepeatBehavior.Forever }; time.BeginAnimation(OpacityProperty,a); } workspace.Children.Add(lockView); }
+    void Lock(bool saver) { CloseTray(); ClosePanel(); if(lockView!=null)return; lockView=new Grid { Background=new SolidColorBrush(Color.FromArgb(215,11,62,84)) }; var p=new StackPanel { VerticalAlignment=VerticalAlignment.Center,HorizontalAlignment=HorizontalAlignment.Center }; p.SetValue(TextElement.ForegroundProperty,Brushes.White); var time=Text(DateTime.Now.ToString("h:mm"),96); lockClock=time; time.Foreground=Brushes.White; time.TextAlignment=TextAlignment.Center; p.Children.Add(time); var date=Text(DateTime.Now.ToString("dddd, MMMM d"),24); date.Foreground=Brushes.White; p.Children.Add(date); p.Children.Add(Button("☻  Welcome back • unlock",Unlock)); p.Children.Add(Text("FreshOS privacy screen • not a secure account lock",13)); lockView.Children.Add(p); if(saver && !MotionReduced) { var a=new System.Windows.Media.Animation.DoubleAnimation(.35,1,TimeSpan.FromSeconds(4)) { AutoReverse=true,RepeatBehavior=System.Windows.Media.Animation.RepeatBehavior.Forever }; time.BeginAnimation(OpacityProperty,a); } Panel.SetZIndex(lockView,100); workspace.Children.Add(lockView); }
     void Unlock() { if(lockView!=null)workspace.Children.Remove(lockView); lockView=null; lockClock=null; }
     void ShowFiles(string path)
     {
-        if(!Directory.Exists(path))return; location=path; var p=ShowPanel("▱  Files",880);
+        if(!Directory.Exists(path)) { MessageBox.Show("This folder does not exist or is not accessible:\n"+path,"FreshOS • Files"); return; } location=Path.GetFullPath(path); var p=ShowPanel("▱  Files",880);
         var nav=new WrapPanel(); p.Children.Add(nav); nav.Children.Add(Button("↑",()=>ShowFiles(Directory.GetParent(location)?.FullName??location)));
         foreach(var (name,dir) in new[]{("Home",Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)),("Desktop",Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)),("Documents",Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)),("Downloads",Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),"Downloads"))}) nav.Children.Add(Button(name,()=>ShowFiles(dir)));
         var address=new TextBox { Text=location }; address.KeyDown+=(_,e)=> { if(e.Key==Key.Enter)Safe(()=>ShowFiles(address.Text)); }; p.Children.Add(address);
@@ -201,9 +211,10 @@ public sealed partial class Desktop : Window
         p.Children.Add(Text("Idle timeout • minutes")); var minutes=new Slider { Minimum=1,Maximum=60,TickFrequency=1,IsSnapToTickEnabled=true,Value=prefs.LockMinutes,Margin=new Thickness(12) }; var value=Text(prefs.LockMinutes+" minutes"); minutes.ValueChanged+=(_,_)=> { prefs.LockMinutes=(int)minutes.Value; value.Text=prefs.LockMinutes+" minutes"; prefs.Save(); }; p.Children.Add(minutes); p.Children.Add(value);
         var saver=new CheckBox { Content="Breathing-clock screensaver",IsChecked=prefs.Screensaver }; saver.Click+=(_,_)=> { prefs.Screensaver=saver.IsChecked==true; prefs.Save(); }; p.Children.Add(saver);
         p.Children.Add(Text("FreshOS respects your system sleep settings. This privacy screen is not a password lock. Use your system account lock for security.",12));
-        p.Children.Add(Button("FreshOS 0.2 • "+(super?"Super features unlocked":"About this little world"),()=> { taps++; if(taps>=10) { super=true; Settings(); } }));
+        p.Children.Add(Button("FreshOS 0.3 • "+(super?"Super features unlocked":"About this little world"),()=> { taps++; if(taps>=10) { super=true; Settings(); } }));
         if(super) { p.Children.Add(Text("THE FOURTH WALL",20)); var startup=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup),"FreshOS.cmd"); var enabled=new CheckBox { Content="Launch FreshOS when I sign in (off by default)",IsChecked=File.Exists(startup) }; enabled.Click+=(_,_)=>Safe(()=> { if(enabled.IsChecked==true)File.WriteAllText(startup,"@echo off\r\nstart \"\" \""+Environment.ProcessPath+"\"\r\n"); else if(File.Exists(startup))File.Delete(startup); }); p.Children.Add(enabled); p.Children.Add(Button("Host system settings",()=>Platform.Open("ms-settings:"))); p.Children.Add(Button("Replay welcome",Welcome)); }
         p.Children.Add(Text("F12 or Alt+F4 always exits. No system apps are replaced. External app borders remain under their app’s control.",12));
+        p.Children.Add(Button("Open diagnostic logs",()=> { Directory.CreateDirectory(Diagnostics.Folder); Platform.Open(Diagnostics.Folder); }));
         p.Children.Add(Button("Leave FreshOS",Close));
     }
 }

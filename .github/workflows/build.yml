@@ -18,6 +18,20 @@ jobs:
       - name: Build application and installer
         shell: pwsh
         run: ./build.ps1 -OutputDirectory "$env:GITHUB_WORKSPACE/artifacts/deliverables"
+      - name: Run Windows interaction checks
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'artifacts/deliverables/FreshOS.exe'
+          $report = Join-Path $env:GITHUB_WORKSPACE 'artifacts/test-results'
+          $process = Start-Process $exe -ArgumentList @('--self-test', '--report-directory', ('"' + $report + '"')) -PassThru
+          if (-not $process.WaitForExit(90000)) { $process.Kill(); throw 'Interaction tests timed out.' }
+          if ($process.ExitCode -ne 0) { Get-Content "$report/failure.txt" -ErrorAction SilentlyContinue; throw 'Interaction tests failed.' }
+          Get-Content "$report/interaction-tests.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FreshOS-test-results
+          path: artifacts/test-results/
       - uses: actions/upload-artifact@v4
         with:
           name: FreshOS-win-x64
