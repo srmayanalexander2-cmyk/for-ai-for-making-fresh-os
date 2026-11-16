@@ -33,4 +33,4 @@ App scanning, shortcut icon lookup, directory enumeration, file copying and ZIP 
 
 ## Acceptance status
 
-Portable XML, duplicate-resource, wallpaper-signature and C# parser checks pass. Windows compilation, COM behavior, rendered composition, UI automation, DPI coverage and frame pacing still need Windows validation. A source parser cannot establish those results. The repository includes build CI and an interactive smoke-test script for that next step.
+Portable XML, duplicate-resource, wallpaper-signature and C# parser checks pass. Windows CI successfully compiled both EXEs in run 43892394803. COM behavior, rendered composition, UI automation, DPI coverage and frame pacing still need interactive Windows validation. A source parser cannot establish those results. The repository includes build CI and an interactive smoke-test script for that next step.

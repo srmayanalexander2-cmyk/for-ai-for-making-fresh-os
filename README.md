@@ -67,7 +67,9 @@ There is no forced kiosk mode or secret-only escape. “Rest” displays a scree
 
 `FreshOS/` is the WPF app; `FreshOS.Setup/` is the installer. The builder creates the ignored `payload.zip` before building setup. `.github/workflows/build.yml` builds both on a Windows runner and uploads the EXEs. No binaries are checked in.
 
-The initial implementation was authored in a Linux sandbox with no .NET SDK or Windows desktop. It has not yet been compiled or interactively tested on Windows. Run the build/CI and verify the checklist below before treating it as stable.
+Both the application and installer were successfully compiled on a Windows GitHub Actions runner. The build caught and resolved a WPF template-target error and an invalid Thickness constructor. Interactive Windows testing is still outstanding. Verify the checklist below before treating it as stable.
+
+Compiled x64 test build: [FreshOS-win-x64 download](https://github.com/srmayanalexander2-cmyk/for-ai-for-making-fresh-os/actions/runs/43892394803/artifacts/14236579518). Sign in to GitHub if prompted, extract the ZIP, and run FreshOS.exe to test without installing. Artifacts expire according to repository retention settings.
 
 ### Windows smoke checklist
 
