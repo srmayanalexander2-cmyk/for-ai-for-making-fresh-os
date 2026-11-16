@@ -76,6 +76,11 @@ public sealed partial class Desktop
             Check(!animated.IsOpen && Math.Abs(animated.Angle)<.5,"arrow animation reaches closed angle");
             Check(desktop.Icon!=null,"main window has the FreshOS icon");
             Check(desktop.ResizeMode==ResizeMode.NoResize && desktop.WindowStyle==WindowStyle.None,"shell has no native resize or snap chrome");
+            desktop.SetFullscreen(true); await desktop.Dispatcher.InvokeAsync(()=>desktop.UpdateLayout(),DispatcherPriority.ApplicationIdle);
+            var monitor=desktop.CurrentMonitor(); GetWindowRect(desktop.shellHandle,out var fullscreenBounds);
+            Check(fullscreenBounds.Left==monitor.Monitor.Left && fullscreenBounds.Top==monitor.Monitor.Top && fullscreenBounds.Right==monitor.Monitor.Right && fullscreenBounds.Bottom==monitor.Monitor.Bottom,"fullscreen covers native monitor bounds, not taskbar work area");
+            desktop.SetFullscreen(false); await desktop.Dispatcher.InvokeAsync(()=>desktop.UpdateLayout(),DispatcherPriority.ApplicationIdle);
+            Check(!desktop.fullscreen,"custom centered layout exits fullscreen without enabling native resize chrome");
             File.WriteAllText(Path.Combine(temporary,"sample.txt"),"FreshOS file-browser fixture");
             desktop.ShowFiles(temporary); desktop.UpdateLayout();
             for(int i=0;i<60 && Descendants(desktop.panel!).OfType<ListBox>().Single().Items.Count==0;i++)await Task.Delay(50);
